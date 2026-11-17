@@ -5,18 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Aware</title>
     <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="report-view.css">
   </head>
   <body>
     <main>
-      <header>
-        <p class="eyebrow">LOCAL PAGE CHECK</p>
-        <h1>Aware</h1>
-        <p class="intro">Inspect this page for content that could mislead an AI agent.</p>
-      </header>
-      <button id="scan-button" type="button">Scan current page</button>
-      <p id="status" class="status" role="status" aria-live="polite">The scan runs in this browser. Page content is not uploaded.</p>
-      <section id="results" aria-label="Scan findings"></section>
-      <footer>Findings are signals, not proof that a page is malicious or safe.</footer>
+      <p class="eyebrow">LOCAL PAGE CHECK</p>
+      <p class="intro">Inspect the page before an AI agent reads it.</p>
+      <div id="app"></div>
+      <p class="privacy">Page content is analyzed in this browser and is not uploaded.</p>
     </main>
     <script src="popup.js"></script>
   </body>
