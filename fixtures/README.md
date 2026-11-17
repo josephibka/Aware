@@ -6,8 +6,8 @@ Open an HTML file directly in a browser, then use Aware's scan action when the e
 
 ## Pages
 
-- `accessible-content.html`: ordinary visible page copy with a small screen-reader-only helper. A scanner may report that hidden text exists; this is expected and is not evidence of malicious intent.
-- `hidden-instruction-demo.html`: an intentionally obvious, harmless instruction-like sentence in hidden page text. It exists to demonstrate a warning and contains no commands that perform actions.
+- `accessible-content.html`: ordinary visible page copy with a screen-reader-only helper. It should not match the current hidden-geometry check because the helper has a small non-zero layout box. This illustrates why hidden-looking content needs context and should not automatically be treated as malicious.
+- `hidden-instruction-demo.html`: an intentionally obvious, harmless instruction-like sentence in hidden page text. It should demonstrate a hidden-instruction warning and contains no commands that perform actions.
 - `ordinary-metadata.html`: routine metadata and an ordinary HTML comment. It should not trigger instruction-specific findings.
 
 Scanner results can vary as the implementation changes. Treat findings as review cues, not verdicts that a page is malicious or safe.
