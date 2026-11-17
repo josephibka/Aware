@@ -4,7 +4,8 @@
   "private": true,
   "description": "Local browser extension for inspecting web content before an AI agent reads it.",
   "scripts": {
-    "build": "esbuild src/popup.ts --bundle --outfile=dist/popup.js --platform=browser --target=chrome102 && cp manifest.json popup.html popup.css dist/"
+    "build": "esbuild src/popup.ts --bundle --outfile=dist/popup.js --platform=browser --target=chrome102 && cp manifest.json popup.html popup.css dist/",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
