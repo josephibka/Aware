@@ -1,94 +1,69 @@
-type Severity = "info" | "low" | "medium" | "high";
+import { renderReport, type ScanReport } from "./report-view";
 
-type Finding = {
-  id: string;
-  category: string;
-  severity: Severity;
-  title: string;
-  description: string;
-  evidence: string;
-  selector?: string;
-  reason?: string;
-};
+const app = document.querySelector<HTMLElement>("#app")!;
+let report: ScanReport | null = null;
+let isScanning = false;
+let errorMessage = "";
 
-type ScanReport = {
-  url: string;
-  scannedAt: string;
-  findings: Finding[];
-};
-
-const scanButton = document.querySelector<HTMLButtonElement>("#scan-button")!;
-const status = document.querySelector<HTMLElement>("#status")!;
-const results = document.querySelector<HTMLElement>("#results")!;
-
-scanButton.addEventListener("click", () => void scanCurrentPage());
+draw();
 
 async function scanCurrentPage(): Promise<void> {
-  scanButton.disabled = true;
-  results.replaceChildren();
-  status.textContent = "Scanning the active tab locally…";
+  if (isScanning) return;
+  isScanning = true;
+  errorMessage = "";
+  draw();
 
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) throw new Error("No active tab is available.");
 
-    // The user explicitly opened Aware's popup, so activeTab grants temporary
-    // access to this tab. The scanner is injected only for this scan.
+    // Opening the popup grants temporary activeTab access. Inject the local
+    // scanner only into this tab, then request its in-memory report.
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ["content.js"]
+      files: ["content.js"],
     });
 
-    const report = await chrome.tabs.sendMessage<ScanReport>(tab.id, {
-      type: "AWARE_SCAN_PAGE"
+    const response: unknown = await chrome.tabs.sendMessage(tab.id, {
+      type: "AWARE_SCAN_PAGE",
     });
 
-    if (!report || !Array.isArray(report.findings)) {
-      throw new Error("The scanner did not return a valid report.");
+    if (!isScanReport(response)) {
+      throw new Error("The page scanner returned an invalid report.");
     }
-
-    status.textContent = `Scanned ${new URL(report.url).hostname} at ${new Date(report.scannedAt).toLocaleTimeString()}.`;
-    renderFindings(report.findings);
+    report = response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The page could not be scanned.";
-    status.textContent = `Could not scan this page: ${message} This can happen on browser-internal pages.`;
+    errorMessage =
+      error instanceof Error
+        ? error.message
+        : "The active page could not be scanned.";
   } finally {
-    scanButton.disabled = false;
+    isScanning = false;
+    draw();
   }
 }
 
-function renderFindings(findings: Finding[]): void {
-  if (findings.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty";
-    empty.textContent = "No warning signals were found by the current checks.";
-    results.append(empty);
-    return;
-  }
+function isScanReport(value: unknown): value is ScanReport {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Partial<ScanReport>;
+  return (
+    typeof candidate.url === "string" &&
+    typeof candidate.scannedAt === "string" &&
+    Array.isArray(candidate.findings)
+  );
+}
 
-  for (const finding of findings) {
-    const card = document.createElement("article");
-    card.className = "finding";
+function draw(): void {
+  renderReport(app, report, {
+    onScan: () => void scanCurrentPage(),
+    isScanning,
+  });
 
-    const badge = document.createElement("span");
-    badge.className = `badge ${finding.severity}`;
-    badge.textContent = finding.severity;
-
-    const title = document.createElement("h2");
-    title.textContent = finding.title;
-
-    const description = document.createElement("p");
-    description.textContent = finding.description;
-
-    const evidence = document.createElement("p");
-    evidence.textContent = `Evidence: ${finding.evidence}`;
-
-    card.append(badge, title, description, evidence);
-    if (finding.selector) {
-      const location = document.createElement("p");
-      location.textContent = `Location: ${finding.selector}`;
-      card.append(location);
-    }
-    results.append(card);
+  if (errorMessage) {
+    const error = document.createElement("p");
+    error.className = "scan-error";
+    error.setAttribute("role", "alert");
+    error.textContent = `Could not scan this page: ${errorMessage}. Browser-internal pages may not allow scanning.`;
+    app.append(error);
   }
 }
