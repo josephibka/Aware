@@ -26,4 +26,4 @@ The scanner and report view share this shape:
 
 ## Limits
 
-A scan reports only signals covered by the current checks. A clean report does not prove that a page is safe, and an alert does not prove malicious intent. This extension scans a page for a person; it does not yet intercept content inside an AI agent's browsing runtime.
+A scan reports only signals covered by the current checks. To keep scans bounded, the scanner inspects at most 8,192 characters from each hidden-content root, HTML comment, or metadata value; text beyond that limit may not be analyzed. A clean report does not prove that a page is safe, and an alert does not prove malicious intent. This extension scans a page for a person; it does not yet intercept content inside an AI agent's browsing runtime.
