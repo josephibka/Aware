@@ -23,14 +23,19 @@ export interface ScanReport {
 }
 
 const MAX_NODES = 5_000;
+const MAX_COMMENT_NODES = 10_000;
 const MAX_FINDINGS = 100;
 const MAX_EVIDENCE_LENGTH = 240;
 
-const DIRECTIVE_PATTERN =
-  /\b(ignore|disregard|override|forget)\b.{0,50}\b(instructions?|rules?|prompt|messages?)\b|\b(system prompt|developer message|AI agent|language model|assistant)\b|\b(do not tell|don't tell|hide this from|reveal|exfiltrate|send .* (secret|password|token|key))\b|\bfollow these instructions\b/i;
+const STRONG_DIRECTIVE_PATTERN =
+  /\b(ignore|disregard|override|forget)\b.{0,50}\b(instructions?|rules?|system prompt|developer message|prompt)\b|\b(do not tell|don't tell|hide this from|reveal|exfiltrate)\b|\bsend\b.{0,40}\b(secret|password|token|key)\b|\bfollow these instructions\b|\b(assistant|AI agent|language model)\b.{0,50}\b(must|should|need to|please)\b/i;
+
+const AGENT_CONTEXT_PATTERN =
+  /\b(system prompt|developer message|AI agent|language model|assistant)\b/i;
 
 function boundedText(value: string, maxLength = MAX_EVIDENCE_LENGTH): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
+  // Avoid normalizing or matching arbitrarily large page strings.
+  const normalized = value.slice(0, maxLength * 4).replace(/\s+/g, " ").trim();
   return normalized.length > maxLength
     ? normalized.slice(0, maxLength - 1) + "…"
     : normalized;
@@ -79,9 +84,7 @@ function hiddenReason(element: HTMLElement, view: Window): string | undefined {
   return undefined;
 }
 
-function makeFinding(
-  input: Omit<Finding, "evidence"> & { evidence: string },
-): Finding {
+function makeFinding(input: Finding): Finding {
   return { ...input, evidence: boundedText(input.evidence) };
 }
 
@@ -98,7 +101,12 @@ export function scanPage(doc?: Document): ScanReport {
     return { url: "", scannedAt, findings };
   }
 
-  const url = target.location?.href ?? "";
+  let url = "";
+  try {
+    url = target.location?.href ?? "";
+  } catch {
+    // Some embedded or synthetic documents may not expose their URL.
+  }
 
   try {
     const view = target.defaultView;
@@ -106,50 +114,76 @@ export function scanPage(doc?: Document): ScanReport {
 
     const elements = target.querySelectorAll<HTMLElement>("body *");
     const count = Math.min(elements.length, MAX_NODES);
+    const coveredHiddenRoots: HTMLElement[] = [];
 
-    for (let index = 0; index < count && findings.length < MAX_FINDINGS; index += 1) {
+    for (
+      let index = 0;
+      index < count && findings.length < MAX_FINDINGS;
+      index += 1
+    ) {
       const element = elements[index];
+      if (/^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT)$/.test(element.tagName)) continue;
+
+      // A finding on a hidden parent already captures its subtree text. Skip
+      // descendants to avoid duplicate findings for the same hidden content.
+      if (coveredHiddenRoots.some((root) => root.contains(element))) continue;
+
       const reason = hiddenReason(element, view);
       if (!reason) continue;
 
       const text = boundedText(element.innerText || element.textContent || "");
       if (!text) continue;
 
-      const selector = makeSelector(element);
-      const directive = DIRECTIVE_PATTERN.test(text);
+      coveredHiddenRoots.push(element);
+      const strongDirective = STRONG_DIRECTIVE_PATTERN.test(text);
+      const genericAgentContext = AGENT_CONTEXT_PATTERN.test(text);
+      const instructionLike = strongDirective || genericAgentContext;
+
       findings.push(
         makeFinding({
           id: "hidden-" + index,
-          category: directive ? "hidden-instruction" : "hidden-content",
-          severity: directive ? "high" : "low",
-          title: directive
-            ? "Instruction-like text is hidden"
+          category: instructionLike ? "hidden-instruction" : "hidden-content",
+          severity: strongDirective ? "high" : genericAgentContext ? "medium" : "low",
+          title: instructionLike
+            ? "Agent-related or instruction-like text is hidden"
             : "Text is hidden from the page view",
-          description: directive
-            ? "Hidden page text contains language commonly used to direct an AI agent. Review the source before an agent uses this page."
-            : "The page contains text that is not currently visible in the normal page view.",
+          description: strongDirective
+            ? "Hidden page text contains directive-like wording. Review the source before an agent uses this page."
+            : genericAgentContext
+              ? "Hidden text mentions an AI agent or instruction context. The mention alone does not establish malicious intent."
+              : "The page contains text that is not currently visible in the normal page view.",
           evidence: text,
-          selector,
+          selector: makeSelector(element),
           reason,
         }),
       );
     }
 
-    // Scan comments separately: comments are available in raw DOM/HTML but are
-    // not normally presented as page text.
+    // Comments are not rendered as page text. Bound both the number inspected
+    // and the number reported so unusually large documents remain manageable.
     const walker = target.createTreeWalker(target, view.NodeFilter.SHOW_COMMENT);
     let current = walker.nextNode();
     let commentIndex = 0;
-    while (current && findings.length < MAX_FINDINGS) {
-      const commentText = current.nodeValue ?? "";
-      if (DIRECTIVE_PATTERN.test(commentText)) {
+    let commentsInspected = 0;
+    while (
+      current &&
+      commentsInspected < MAX_COMMENT_NODES &&
+      findings.length < MAX_FINDINGS
+    ) {
+      commentsInspected += 1;
+      const commentText = boundedText(current.nodeValue ?? "");
+      const strongDirective = STRONG_DIRECTIVE_PATTERN.test(commentText);
+      const genericAgentContext = AGENT_CONTEXT_PATTERN.test(commentText);
+      if (strongDirective || genericAgentContext) {
         const parent = current.parentElement;
         findings.push(
           makeFinding({
             id: "comment-" + commentIndex,
             category: "comment-instruction",
-            severity: "medium",
-            title: "Instruction-like text appears in an HTML comment",
+            severity: strongDirective ? "medium" : "low",
+            title: strongDirective
+              ? "Directive-like text appears in an HTML comment"
+              : "AI-related text appears in an HTML comment",
             description: "HTML comments are not normally visible to people but may be included in page source given to an agent.",
             evidence: commentText,
             selector: parent ? makeSelector(parent) : undefined,
@@ -162,27 +196,32 @@ export function scanPage(doc?: Document): ScanReport {
     }
 
     // Page metadata is machine-readable and usually not part of the visible
-    // page body. Only report it when it contains directive-like wording.
+    // page body. Inspect only a bounded number and report directive-like text.
     const metadata = target.querySelectorAll<HTMLMetaElement>(
       'meta[name="description"], meta[property="og:description"], meta[name="keywords"]',
     );
-    metadata.forEach((element, index) => {
-      if (findings.length >= MAX_FINDINGS) return;
-      const value = element.content || "";
-      if (!value || !DIRECTIVE_PATTERN.test(value)) return;
+    const metadataCount = Math.min(metadata.length, MAX_NODES);
+    for (let index = 0; index < metadataCount && findings.length < MAX_FINDINGS; index += 1) {
+      const element = metadata[index];
+      const value = boundedText(element.content || "");
+      const strongDirective = STRONG_DIRECTIVE_PATTERN.test(value);
+      const genericAgentContext = AGENT_CONTEXT_PATTERN.test(value);
+      if (!strongDirective && !genericAgentContext) continue;
       findings.push(
         makeFinding({
           id: "metadata-" + index,
           category: "metadata-instruction",
-          severity: "medium",
-          title: "Instruction-like text appears in page metadata",
+          severity: strongDirective ? "medium" : "low",
+          title: strongDirective
+            ? "Directive-like text appears in page metadata"
+            : "AI-related text appears in page metadata",
           description: "This metadata may be read by an agent even though it is not shown in the main page content.",
           evidence: value,
           selector: makeSelector(element),
           reason: "Metadata is not normally displayed in the page",
         }),
       );
-    });
+    }
   } catch {
     // Keep the scan safe on pages whose DOM changes during inspection.
     return { url, scannedAt, findings };
