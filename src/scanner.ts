@@ -24,21 +24,65 @@ export interface ScanReport {
 
 const MAX_NODES = 5_000;
 const MAX_COMMENT_NODES = 10_000;
+const MAX_TEXT_NODES_PER_ROOT = 1_000;
+const MAX_INSPECTED_TEXT_LENGTH = 8_192;
 const MAX_FINDINGS = 100;
 const MAX_EVIDENCE_LENGTH = 240;
 
 const STRONG_DIRECTIVE_PATTERN =
-  /\b(ignore|disregard|override|forget)\b.{0,50}\b(instructions?|rules?|system prompt|developer message|prompt)\b|\b(do not tell|don't tell|hide this from|reveal|exfiltrate)\b|\bsend\b.{0,40}\b(secret|password|token|key)\b|\bfollow these instructions\b|\b(assistant|AI agent|language model)\b.{0,50}\b(must|should|need to|please)\b/i;
+  /\b(ignore|disregard|override|forget)\b.{0,50}\b(instructions?|rules?|system prompt|developer message|prompt)\b|\b(do not tell|don't tell|hide this from|exfiltrate)\b|\breveal\b.{0,50}\b(secret|password|token|key|system prompt|hidden instructions?)\b|\bsend\b.{0,40}\b(secret|password|token|key)\b|\bfollow these instructions\b|\b(assistant|AI agent|language model)\b.{0,50}\b(must|should|need to|please)\b/i;
 
 const AGENT_CONTEXT_PATTERN =
   /\b(system prompt|developer message|AI agent|language model|assistant)\b/i;
 
-function boundedText(value: string, maxLength = MAX_EVIDENCE_LENGTH): string {
-  // Avoid normalizing or matching arbitrarily large page strings.
-  const normalized = value.slice(0, maxLength * 4).replace(/\s+/g, " ").trim();
-  return normalized.length > maxLength
-    ? normalized.slice(0, maxLength - 1) + "…"
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function boundedEvidence(value: string): string {
+  const normalized = normalizeText(value.slice(0, MAX_EVIDENCE_LENGTH * 4));
+  return normalized.length > MAX_EVIDENCE_LENGTH
+    ? normalized.slice(0, MAX_EVIDENCE_LENGTH - 1) + "…"
     : normalized;
+}
+
+function boundedScanText(value: string): string {
+  return normalizeText(value.slice(0, MAX_INSPECTED_TEXT_LENGTH));
+}
+
+/**
+ * Read text nodes incrementally instead of materializing an entire subtree via
+ * innerText/textContent. Both text length and visited-node count are bounded.
+ */
+function readBoundedElementText(element: HTMLElement, view: Window): string {
+  const walker = element.ownerDocument.createTreeWalker(
+    element,
+    view.NodeFilter.SHOW_TEXT,
+  );
+  const parts: string[] = [];
+  let remaining = MAX_INSPECTED_TEXT_LENGTH;
+  let visited = 0;
+  let current = walker.nextNode();
+
+  while (
+    current &&
+    remaining > 0 &&
+    visited < MAX_TEXT_NODES_PER_ROOT
+  ) {
+    visited += 1;
+    const parent = current.parentElement;
+    if (!parent?.closest("script, style, template, noscript")) {
+      const value = current.nodeValue ?? "";
+      if (value) {
+        const piece = value.slice(0, remaining);
+        parts.push(piece);
+        remaining -= piece.length;
+      }
+    }
+    current = walker.nextNode();
+  }
+
+  return normalizeText(parts.join(" "));
 }
 
 function makeSelector(element: Element): string {
@@ -85,7 +129,7 @@ function hiddenReason(element: HTMLElement, view: Window): string | undefined {
 }
 
 function makeFinding(input: Finding): Finding {
-  return { ...input, evidence: boundedText(input.evidence) };
+  return { ...input, evidence: boundedEvidence(input.evidence) };
 }
 
 /**
@@ -131,12 +175,12 @@ export function scanPage(doc?: Document): ScanReport {
       const reason = hiddenReason(element, view);
       if (!reason) continue;
 
-      const text = boundedText(element.innerText || element.textContent || "");
-      if (!text) continue;
+      const scanText = readBoundedElementText(element, view);
+      if (!scanText) continue;
 
       coveredHiddenRoots.push(element);
-      const strongDirective = STRONG_DIRECTIVE_PATTERN.test(text);
-      const genericAgentContext = AGENT_CONTEXT_PATTERN.test(text);
+      const strongDirective = STRONG_DIRECTIVE_PATTERN.test(scanText);
+      const genericAgentContext = AGENT_CONTEXT_PATTERN.test(scanText);
       const instructionLike = strongDirective || genericAgentContext;
 
       findings.push(
@@ -152,7 +196,7 @@ export function scanPage(doc?: Document): ScanReport {
             : genericAgentContext
               ? "Hidden text mentions an AI agent or instruction context. The mention alone does not establish malicious intent."
               : "The page contains text that is not currently visible in the normal page view.",
-          evidence: text,
+          evidence: scanText,
           selector: makeSelector(element),
           reason,
         }),
@@ -160,7 +204,7 @@ export function scanPage(doc?: Document): ScanReport {
     }
 
     // Comments are not rendered as page text. Bound both the number inspected
-    // and the number reported so unusually large documents remain manageable.
+    // and the amount of each comment examined.
     const walker = target.createTreeWalker(target, view.NodeFilter.SHOW_COMMENT);
     let current = walker.nextNode();
     let commentIndex = 0;
@@ -171,7 +215,7 @@ export function scanPage(doc?: Document): ScanReport {
       findings.length < MAX_FINDINGS
     ) {
       commentsInspected += 1;
-      const commentText = boundedText(current.nodeValue ?? "");
+      const commentText = boundedScanText(current.nodeValue ?? "");
       const strongDirective = STRONG_DIRECTIVE_PATTERN.test(commentText);
       const genericAgentContext = AGENT_CONTEXT_PATTERN.test(commentText);
       if (strongDirective || genericAgentContext) {
@@ -196,14 +240,18 @@ export function scanPage(doc?: Document): ScanReport {
     }
 
     // Page metadata is machine-readable and usually not part of the visible
-    // page body. Inspect only a bounded number and report directive-like text.
+    // page body. Inspect only a bounded number and amount of text.
     const metadata = target.querySelectorAll<HTMLMetaElement>(
       'meta[name="description"], meta[property="og:description"], meta[name="keywords"]',
     );
     const metadataCount = Math.min(metadata.length, MAX_NODES);
-    for (let index = 0; index < metadataCount && findings.length < MAX_FINDINGS; index += 1) {
+    for (
+      let index = 0;
+      index < metadataCount && findings.length < MAX_FINDINGS;
+      index += 1
+    ) {
       const element = metadata[index];
-      const value = boundedText(element.content || "");
+      const value = boundedScanText(element.content || "");
       const strongDirective = STRONG_DIRECTIVE_PATTERN.test(value);
       const genericAgentContext = AGENT_CONTEXT_PATTERN.test(value);
       if (!strongDirective && !genericAgentContext) continue;
