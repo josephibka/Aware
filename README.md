@@ -33,7 +33,7 @@ The extension currently scans on a person’s request. It does **not** intercept
 
 ## Results
 
-**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. Manual browser checks have not yet been run, so there are no accuracy, detection-rate, or false-positive results to report.
+**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. In a manual Chrome check, `hidden-instruction-demo.html` produced one high-severity warning for hidden agent-related or instruction-like text. The two benign fixture pages still need to be checked; this single positive example is not an accuracy or detection-rate measurement.
 
 The next evaluation should:
 
