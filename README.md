@@ -1,14 +1,14 @@
 # Aware
 
-Aware is a local-first browser extension prototype for finding web content that may mislead AI agents. It surfaces evidence for a person to review; it does not decide whether a page is malicious or safe.
+Aware is a local-first browser extension project for finding web content that may mislead AI agents. It surfaces evidence for a person to review; it does not decide whether a page is malicious or safe.
 
 [Problem](#the-problem) · [Approach](#approach) · [How it works](#how-it-works) · [Results](#results) · [Development](#development) · [Related work](#related-work)
 
-> **Status:** The prototype is being developed on feature branches. This README is on `feat/extension-shell`; the work has not yet been merged into `main`.
+> **Project status:** Aware is in early development. The extension prototype is being built on feature branches; this README will be updated as implementation and testing progress.
 
 ## The problem
 
-AI agents use web pages as information sources. A page can contain instructions or claims that an agent reads even when a person does not see them in the normal page view. Examples include text hidden with CSS, HTML comments, and page metadata. Other attacks use visible wording to steer an agent, so a difference between human-visible and machine-readable content is only one part of the problem.
+AI agents use web pages as information sources. A page can contain instructions or claims that an agent reads even when a person does not see them in the normal page view. Examples include text hidden with CSS, HTML comments, and page metadata. Other attacks use visible wording to steer an agent, so differences between human-visible and machine-readable content are only one part of the problem.
 
 This is an indirect prompt-injection risk: the page is untrusted input, but an agent may treat its content as instructions while pursuing a user’s task. If the agent also has access to tools or sensitive data, misleading content can have consequences beyond an inaccurate answer.
 
@@ -33,7 +33,7 @@ The extension currently scans on a person’s request. It does **not** intercept
 
 ## Results
 
-**Testing status: not yet measured.** The branches have received a code review, but the build, typecheck, and manual browser checks have not yet been run. There are no accuracy, detection-rate, or false-positive results to report yet.
+**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. Manual Chrome smoke checks produced: one high-severity warning for `hidden-instruction-demo.html`; one medium-severity warning for `metadata-instruction-demo.html`; one medium-severity warning for `comment-instruction-demo.html`; and no findings for `ordinary-metadata.html` or `accessible-content.html`. These five fixture checks are a smoke check, not an accuracy or detection-rate measurement.
 
 The next evaluation should:
 
@@ -54,7 +54,7 @@ Static demo pages are being developed on the [safe-fixtures branch](https://gith
 
 ## Development
 
-Requires Node.js and npm.
+The runnable extension prototype is currently on the `feat/extension-shell` branch. After checking out that branch, it requires Node.js and npm:
 
 ```sh
 npm install
@@ -64,7 +64,7 @@ npm run typecheck
 
 To load the built extension, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the generated `dist` directory.
 
-These development steps have not yet been validated by running the build or typecheck.
+The build and typecheck passed locally. Loading the extension in Chrome and scanning the fixture pages remain to be done.
 
 ## Related work
 
