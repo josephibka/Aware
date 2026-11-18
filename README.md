@@ -33,7 +33,7 @@ The extension currently scans on a person’s request. It does **not** intercept
 
 ## Results
 
-**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. Manual Chrome checks of the current fixtures produced one high-severity warning for `hidden-instruction-demo.html`; `ordinary-metadata.html` and `accessible-content.html` returned no findings. These three checks are a smoke check, not an accuracy or detection-rate measurement. HTML-comment and instruction-like metadata detection still need dedicated positive examples.
+**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. Manual Chrome checks have produced one high-severity warning for `hidden-instruction-demo.html`, no findings for `ordinary-metadata.html` or `accessible-content.html`, and one medium-severity metadata warning for `metadata-instruction-demo.html`. The HTML-comment positive example still needs checking. These fixture checks are a smoke check, not an accuracy or detection-rate measurement.
 
 The next evaluation should:
 
