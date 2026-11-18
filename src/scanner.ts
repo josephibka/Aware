@@ -57,7 +57,7 @@ function boundedScanText(value: string): string {
 function readBoundedElementText(element: HTMLElement, view: Window): string {
   const walker = element.ownerDocument.createTreeWalker(
     element,
-    view.NodeFilter.SHOW_TEXT,
+    NodeFilter.SHOW_TEXT,
   );
   const parts: string[] = [];
   let remaining = MAX_INSPECTED_TEXT_LENGTH;
@@ -205,7 +205,7 @@ export function scanPage(doc?: Document): ScanReport {
 
     // Comments are not rendered as page text. Bound both the number inspected
     // and the amount of each comment examined.
-    const walker = target.createTreeWalker(target, view.NodeFilter.SHOW_COMMENT);
+    const walker = target.createTreeWalker(target, NodeFilter.SHOW_COMMENT);
     let current = walker.nextNode();
     let commentIndex = 0;
     let commentsInspected = 0;
