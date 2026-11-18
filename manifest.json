@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Aware",
+  "version": "0.1.0",
+  "description": "Inspect web content for signals that could mislead AI agents.",
+  "minimum_chrome_version": "102",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "Scan with Aware",
+    "default_popup": "popup.html"
+  }
+}
