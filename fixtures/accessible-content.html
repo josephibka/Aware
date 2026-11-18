@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Accessible Content Example</title>
+    <style>
+      .screen-reader-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Community Garden</h1>
+      <p>Join a neighborhood workday this Saturday. Bring gloves and a reusable water bottle.</p>
+      <a href="#schedule">
+        View the schedule
+        <span class="screen-reader-only"> for upcoming garden workdays</span>
+      </a>
+      <h2 id="schedule">Upcoming workdays</h2>
+      <p>Saturday at 9:00 AM in the north garden.</p>
+    </main>
+  </body>
+</html>

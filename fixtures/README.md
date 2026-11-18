@@ -1,0 +1,15 @@
+# Safe scanner fixtures
+
+These pages are local, static examples for manually exploring Aware's findings. They contain no executable attack code, external scripts, tracking, network requests, or data collection. They are not tests and do not claim to represent every real-world attack.
+
+Open an HTML file directly in a browser, then use Aware's scan action when the extension is available.
+
+## Pages
+
+- `accessible-content.html`: ordinary visible page copy with a screen-reader-only helper. It should not match the current hidden-geometry check because the helper has a small non-zero layout box. This illustrates why hidden-looking content needs context and should not automatically be treated as malicious.
+- `hidden-instruction-demo.html`: an intentionally obvious, harmless instruction-like sentence in hidden page text. It should demonstrate a hidden-instruction warning and contains no commands that perform actions.
+- `ordinary-metadata.html`: routine metadata and an ordinary HTML comment. It should not trigger instruction-specific findings.
+- `comment-instruction-demo.html`: a harmless instruction-like sentence in an HTML comment. It should produce a comment finding.
+- `metadata-instruction-demo.html`: a harmless instruction-like sentence in the description metadata. It should produce a metadata finding.
+
+Scanner results can vary as the implementation changes. Treat findings as review cues, not verdicts that a page is malicious or safe.
