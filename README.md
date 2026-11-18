@@ -33,7 +33,7 @@ The extension currently scans on a person’s request. It does **not** intercept
 
 ## Results
 
-**Testing status: not yet measured.** The prototype has received a code review, but the build, typecheck, and manual browser checks have not yet been run. There are no accuracy, detection-rate, or false-positive results to report yet.
+**Build and typecheck passed locally** on `feat/extension-shell` after fixing a TypeScript issue in the scanner. Manual browser checks have not yet been run, so there are no accuracy, detection-rate, or false-positive results to report.
 
 The next evaluation should:
 
@@ -64,7 +64,7 @@ npm run typecheck
 
 To load the built extension, open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select the generated `dist` directory.
 
-These development steps have not yet been validated by running the build or typecheck.
+The build and typecheck passed locally. Loading the extension in Chrome and scanning the fixture pages remain to be done.
 
 ## Related work
 
