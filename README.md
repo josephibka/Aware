@@ -33,7 +33,7 @@ The extension currently scans on a person’s request. It does **not** intercept
 
 ### Planned: Auto Scan
 
-Aware will keep manual scanning and add an opt-in Auto Scan mode for pages opened in the Chrome session where the extension is installed. Enabling it will request optional site access. Aware will scan after a page loads and recheck when meaningful page content changes, while avoiding repeat alerts for the same finding. Aware will mark its toolbar icon for findings, and system notifications that open the report will be reserved for medium and high severity. Low and info findings will remain available in the badge and report. Page analysis remains local. Auto Scan will not see pages opened by a separate AI agent or scraper until Aware is connected to that browser or tool.
+Aware will keep manual scanning and add an opt-in Auto Scan mode for pages opened in the Chrome session where the extension is installed. Enabling it will request optional site access. Aware will scan after a page loads and recheck when meaningful page content changes, while avoiding repeat alerts for the same finding. Aware will mark its toolbar icon for findings, and system notifications that open the report will be reserved for medium and high severity. Low and info findings will remain available in the badge and report. Page analysis remains local. The popup will keep a compact Manual/Auto switch. Selecting Auto will first explain what it scans and request optional access to websites and notifications; Auto stays off until the user confirms. Manual scanning remains available if Auto access is declined. Auto Scan will not see pages opened by a separate AI agent or scraper until Aware is connected to that browser or tool.
 
 ## Results
 
